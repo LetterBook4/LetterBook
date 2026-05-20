@@ -150,7 +150,11 @@ Para ativar Sonar:
 | Java version error | `JAVA_HOME` apontando para JDK 25 | Repoint para JDK 21.0.8 |
 | Frontend não chama API | Aberto via `file://` | Use `python -m http.server` |
 | CORS no `/api/cep` | OK, o frontend já chama o **backend**, não o ViaCEP direto | — |
+<<<<<<< HEAD
+# LetterBook
+=======
 
 ## Atualização
 
 Contribuição realizada por Thiago Henrique.
+>>>>>>> 09c983928cdc1e377dd7a54df8f714c6e1152fa8
