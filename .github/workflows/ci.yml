@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # Sonar precisa do histórico completo
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -31,30 +31,25 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Tornar mvnw executável
-        working-directory: backend
-        run: chmod +x mvnw || true
+      - name: Ajustar permissão e rodar Build/Testes
+        run: |
+          chmod +x backend/mvnw
+          ./backend/mvnw -B clean verify
 
-      - name: Build, testes e relatório JaCoCo
-        working-directory: backend
-        run: ./mvnw -B clean verify
-
-      - name: Upload JaCoCo report (HTML)
+      - name: Upload JaCoCo report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jacoco-report
-          path: backend/target/site/jacoco
+          name: test-reports
+          path: backend/target/site/jacoco/
 
-      - name: SonarCloud scan
+      - name: SonarCloud Scan
         if: ${{ env.SONAR_TOKEN != '' }}
-        working-directory: backend
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN:  ${{ secrets.SONAR_TOKEN }}
-        run: >
-          ./mvnw -B sonar:sonar
-          -Dsonar.projectKey=letterbook
-          -Dsonar.organization=letterbook
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ./backend/mvnw -B sonar:sonar \
+          -Dsonar.projectKey=letterbook \
+          -Dsonar.organization=letterbook \
           -Dsonar.host.url=https://sonarcloud.io
-          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
