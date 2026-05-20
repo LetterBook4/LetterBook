@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: letterbook
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/letterbook}
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:troque-este-segredo-base64-com-pelo-menos-256-bits-em-producao-XX}
+    expiration-minutes: 720
+  cep:
+    base-url: ${CEP_BASE_URL:https://viacep.com.br/ws}
+
+logging:
+  level:
+    org.springframework.security: INFO
