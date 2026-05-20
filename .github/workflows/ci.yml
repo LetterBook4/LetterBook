@@ -32,13 +32,9 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Make mvnw executable
-        working-directory: backend
-        run: chmod +x mvnw || true
-
       - name: Build, tests and JaCoCo report
         working-directory: backend
-        run: ./mvnw -B clean verify
+        run: mvn -B clean verify
 
       - name: Upload JaCoCo report
         if: always()
@@ -53,7 +49,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
-          ./mvnw -B sonar:sonar
+          mvn -B sonar:sonar
           -Dsonar.projectKey=letterbook
           -Dsonar.organization=letterbook
           -Dsonar.host.url=https://sonarcloud.io
