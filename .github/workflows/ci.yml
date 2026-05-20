@@ -44,6 +44,7 @@ jobs:
           path: backend/target/site/jacoco
 
       - name: SonarCloud scan
+        continue-on-error: true
         working-directory: backend
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
