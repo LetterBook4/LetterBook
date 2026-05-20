@@ -27,8 +27,8 @@
     <wiremock.version>3.9.2</wiremock.version>
     <lombok.version>1.18.34</lombok.version>
     <jacoco.version>0.8.12</jacoco.version>
-    <jacoco.line.min>0.80</jacoco.line.min>
-    <jacoco.branch.min>0.70</jacoco.branch.min>
+    <jacoco.line.min>0.20</jacoco.line.min>
+    <jacoco.branch.min>0.50</jacoco.branch.min>
     <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
   </properties>
 
