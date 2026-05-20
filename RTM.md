@@ -1,114 +1,180 @@
-# RTM - Matriz de Rastreabilidade de Requisitos
-
-| ID    | Requisito Funcional                          | Camada                          | Teste(s) automatizado(s)                                          | Tipo de teste                              |
-|-------|----------------------------------------------|---------------------------------|-------------------------------------------------------------------|--------------------------------------------|
-| RF-01 | Cadastrar livro                              | `BookController.create`         | `BookControllerIT#crudFullCycle`                                  | Integração / Caixa Preta / Testcontainers  |
-| RF-02 | Listar livros do usuário                     | `BookController.list`           | `BookControllerIT#crudFullCycle`                                  | Integração / Caixa Preta                   |
-| RF-03 | Editar livro                                 | `BookController.update`         | `BookControllerIT#crudFullCycle`                                  | Integração / Caixa Preta                   |
-| RF-04 | Excluir livro                                | `BookController.delete`         | `BookControllerIT#crudFullCycle`                                  | Integração / Caixa Preta                   |
-| RF-05 | Buscar livros por título/autor               | `BookController.list(search)`   | `BookControllerIT#searchFiltersByTitleOrAuthor`                   | Integração / E2E                           |
-| RF-06 | Cadastro de usuário                          | `AuthController.register`       | `AuthControllerIT#registerThenLoginReturnsJwt`                    | Integração / Testcontainers                |
-| RF-07 | Login com JWT                                | `AuthController.login`          | `AuthControllerIT#registerThenLoginReturnsJwt`                    | Integração / E2E                           |
-| RF-08 | E-mail único no cadastro                     | `AuthService.register`          | `AuthControllerIT#duplicateEmailReturns409`                       | Integração                                 |
-| RF-09 | Validação de e-mail                          | `EmailValidator`                | `EmailValidatorTest` (vários cenários)                            | Unitário Parametrizado / Caixa Branca      |
-| RF-10 | Política de senha forte                      | `PasswordPolicy`                | `PasswordPolicyTest` (vários cenários)                            | Unitário Parametrizado / Caixa Branca      |
-| RF-11 | Senha fraca rejeitada no cadastro            | `AuthService.register`          | `AuthControllerIT#invalidPasswordReturns400`                      | Integração                                 |
-| RF-12 | Filtro JWT bloqueia acessos não autenticados | `SecurityConfig` + `JwtAuthFilter` | `BookControllerIT#unauthenticatedRequestReturns401`              | Integração / Segurança                     |
-| RF-13 | Usuário só acessa os próprios livros         | `BookService.getOwned`          | `BookControllerIT#cannotAccessOtherUsersBook`                     | Integração / Caixa Preta                   |
-| RF-14 | Geração/validação de token JWT               | `JwtService`                    | `JwtServiceTest`                                                  | Unitário / Caixa Branca                    |
-| RF-15 | Consulta de CEP (ViaCEP)                     | `CepService.lookup`             | `CepServiceVcrTest#buscaCepValidoRetornaEndereco`                 | Integração com API externa via WireMock/VCR|
-| RF-16 | CEP inexistente retorna 404                  | `CepService.lookup`             | `CepServiceVcrTest#cepInexistenteLanca404`                        | VCR / Caixa Preta                          |
-| RF-17 | CEP em formato inválido rejeitado            | `CepService.lookup`             | `CepServiceVcrTest#cepFormatoInvalidoLancaBadRequest`             | Unitário / Validação                       |
-| RF-18 | Editar perfil + endereço (com ViaCEP)        | `UserController.updateMe`       | `AuthControllerIT` (endereço persistido) + frontend `buscarCEP`   | Integração                                 |
-
-> Regra crítica do edital: **proibido o uso de Mockito/`@MockBean`**. Toda integração roda contra MongoDB real via **Testcontainers**, e a integração com ViaCEP usa **WireMock + JSON gravado (VCR)** em `src/test/resources/vcr/`.
-
----
-
-## Diagramas de Sequência (UML / Mermaid)
-
-### RF-07 — Login com JWT
+### RF-05 — Busca de livros por título/autor
 
 ```mermaid
 sequenceDiagram
   participant U as Usuário
   participant F as Frontend
-  participant C as AuthController
-  participant S as AuthService
-  participant R as UserRepository
-  participant J as JwtService
+  participant BC as BookController
+  participant BS as BookService
+  participant BR as BookRepository
   participant M as MongoDB
 
-  U->>F: preenche email + senha
-  F->>C: POST /api/auth/login
-  C->>S: login(req)
-  S->>R: findByEmail(email)
-  R->>M: query users
-  M-->>R: User
-  R-->>S: User
-  S->>S: passwordEncoder.matches()
-  S->>J: generate(userId, email)
-  J-->>S: JWT
-  S-->>C: AuthResponse(token, user)
-  C-->>F: 200 OK + token
-  F->>F: localStorage.setItem('lb_token')
+  U->>F: digita termo de busca
+  F->>BC: GET /api/books?search=clean
+  BC->>BS: search(userId, termo)
+  BS->>BR: findByOwnerIdAndSearch(...)
+  BR->>M: consulta filtrada
+  M-->>BR: livros encontrados
+  BR-->>BS: lista
+  BS-->>BC: resultado
+  BC-->>F: 200 OK + livros
 ```
 
-### RF-15 — Consulta de CEP (ViaCEP)
+### RF-06 — Cadastro de usuário
+
+```mermaid
+sequenceDiagram
+  participant U as Usuário
+  participant F as Frontend
+  participant AC as AuthController
+  participant AS as AuthService
+  participant UR as UserRepository
+  participant M as MongoDB
+
+  U->>F: preenche cadastro
+  F->>AC: POST /api/auth/register
+  AC->>AS: register(data)
+  AS->>UR: existsByEmail(email)
+  UR->>M: consulta email
+  M-->>UR: resultado
+  AS->>UR: save(user)
+  UR->>M: persiste usuário
+  M-->>UR: usuário salvo
+  UR-->>AS: User
+  AS-->>AC: sucesso
+  AC-->>F: 201 Created
+```
+
+### RF-08 — Validação de e-mail único
+
+```mermaid
+sequenceDiagram
+  participant AC as AuthController
+  participant AS as AuthService
+  participant UR as UserRepository
+  participant M as MongoDB
+
+  AC->>AS: register(email)
+  AS->>UR: existsByEmail(email)
+  UR->>M: consulta email
+  M-->>UR: email já existe
+  UR-->>AS: true
+  AS-->>AC: DuplicateEmailException
+  AC-->>AC: retorna 409
+```
+
+### RF-09 — Validação de e-mail
+
+```mermaid
+sequenceDiagram
+  participant T as Teste
+  participant EV as EmailValidator
+
+  T->>EV: isValid("email@teste.com")
+  EV-->>T: true
+
+  T->>EV: isValid("email-invalido")
+  EV-->>T: false
+```
+
+### RF-10 — Política de senha forte
+
+```mermaid
+sequenceDiagram
+  participant T as Teste
+  participant PP as PasswordPolicy
+
+  T->>PP: validate("Senha123")
+  PP-->>T: válido
+
+  T->>PP: validate("123")
+  PP-->>T: inválido
+```
+
+### RF-11 — Rejeição de senha fraca
 
 ```mermaid
 sequenceDiagram
   participant F as Frontend
-  participant CC as CepController
-  participant CS as CepService
-  participant V as ViaCEP API
+  participant AC as AuthController
+  participant AS as AuthService
 
-  F->>CC: GET /api/cep/{cep}
-  CC->>CS: lookup(cep)
-  CS->>CS: sanitiza e valida 8 dígitos
-  CS->>V: GET /ws/{cep}/json/
-  V-->>CS: 200 {logradouro, bairro, ...}
-  CS-->>CC: CepResponse
-  CC-->>F: 200 OK
-  F->>F: auto-preenche rua/bairro/cidade/UF
+  F->>AC: POST /register senha fraca
+  AC->>AS: register()
+  AS->>AS: validatePassword()
+  AS-->>AC: BadRequestException
+  AC-->>F: 400 Bad Request
 ```
 
-### RF-01..04 — CRUD de Livros (autenticado)
+### RF-12 — Bloqueio sem autenticação JWT
 
 ```mermaid
 sequenceDiagram
-  participant F as Frontend
+  participant U as Usuário
   participant JF as JwtAuthFilter
-  participant BC as BookController
-  participant BS as BookService
-  participant BR as BookRepository
-  participant M as MongoDB
+  participant API as API
 
-  F->>JF: Authorization: Bearer <token>
-  JF->>JF: parseSubject -> userId
-  JF->>BC: request com SecurityContext
-  BC->>BS: create/update/delete/list
-  BS->>BR: save / findByOwnerId / deleteById
-  BR->>M: persistência
-  M-->>BR: resultado
-  BR-->>BS: Book(s)
-  BS-->>BC: View
-  BC-->>F: 200/201/204
+  U->>JF: request sem token
+  JF->>JF: token ausente
+  JF-->>API: bloqueia requisição
+  API-->>U: 401 Unauthorized
 ```
 
-### RF-13 — Autorização por dono
+### RF-14 — Geração e validação JWT
 
 ```mermaid
 sequenceDiagram
-  participant F as Frontend(outro usuário)
-  participant BC as BookController
-  participant BS as BookService
-  participant BR as BookRepository
+  participant JS as JwtService
 
-  F->>BC: GET /api/books/{id}
-  BC->>BS: getOwned(userId, id)
-  BS->>BR: findById(id)
-  BR-->>BS: Book(ownerId != userId)
-  BS-->>BC: AccessDeniedException
-  BC-->>F: 403 Forbidden
+  JS->>JS: generateToken(user)
+  JS-->>JS: JWT assinado
+
+  JS->>JS: validateToken(jwt)
+  JS-->>JS: token válido
+```
+
+### RF-16 — CEP inexistente
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant CS as CepService
+  participant API as ViaCEP
+
+  F->>CS: lookup(00000000)
+  CS->>API: consulta CEP
+  API-->>CS: erro=true
+  CS-->>F: 404 Not Found
+```
+
+### RF-17 — CEP inválido
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant CS as CepService
+
+  F->>CS: lookup("abc")
+  CS->>CS: valida formato
+  CS-->>F: 400 Bad Request
+```
+
+### RF-18 — Atualização de perfil
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant UC as UserController
+  participant US as UserService
+  participant UR as UserRepository
+  participant M as MongoDB
+
+  F->>UC: PUT /api/users/me
+  UC->>US: updateProfile()
+  US->>UR: save(user)
+  UR->>M: persistência
+  M-->>UR: usuário atualizado
+  UR-->>US: sucesso
+  US-->>UC: dados atualizados
+  UC-->>F: 200 OK
 ```
