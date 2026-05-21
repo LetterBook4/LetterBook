@@ -1,4 +1,120 @@
-### RF-05 — Busca de livros por título/autor
+# RTM - Matriz de Rastreabilidade de Requisitos
+
+| ID | Requisito Funcional | Camada | Teste(s) automatizado(s) | Tipo de teste |
+|---|---|---|---|---|
+| RF-01 | Cadastrar livro | `BookController.create` | `BookControllerIT#crudFullCycle` | Integração / Caixa Preta / Testcontainers |
+| RF-02 | Listar livros do usuário | `BookController.list` | `BookControllerIT#crudFullCycle` | Integração / Caixa Preta |
+| RF-03 | Editar livro | `BookController.update` | `BookControllerIT#crudFullCycle` | Integração / Caixa Preta |
+| RF-04 | Excluir livro | `BookController.delete` | `BookControllerIT#crudFullCycle` | Integração / Caixa Preta |
+| RF-05 | Buscar livros por título/autor | `BookController.list(search)` | `BookControllerIT#searchFiltersByTitleOrAuthor` | Integração / E2E |
+| RF-06 | Cadastro de usuário | `AuthController.register` | `AuthControllerIT#registerThenLoginReturnsJwt` | Integração / Testcontainers |
+| RF-07 | Login com JWT | `AuthController.login` | `AuthControllerIT#registerThenLoginReturnsJwt` | Integração / E2E |
+| RF-08 | E-mail único no cadastro | `AuthService.register` | `AuthControllerIT#duplicateEmailReturns409` | Integração |
+| RF-09 | Validação de e-mail | `EmailValidator` | `EmailValidatorTest` | Unitário Parametrizado / Caixa Branca |
+| RF-10 | Política de senha forte | `PasswordPolicy` | `PasswordPolicyTest` | Unitário Parametrizado / Caixa Branca |
+| RF-11 | Senha fraca rejeitada no cadastro | `AuthService.register` | `AuthControllerIT#invalidPasswordReturns400` | Integração |
+| RF-12 | Filtro JWT bloqueia acessos não autenticados | `SecurityConfig` + `JwtAuthFilter` | `BookControllerIT#unauthenticatedRequestReturns401` | Integração / Segurança |
+| RF-13 | Usuário só acessa os próprios livros | `BookService.getOwned` | `BookControllerIT#cannotAccessOtherUsersBook` | Integração / Caixa Preta |
+| RF-14 | Geração/validação de token JWT | `JwtService` | `JwtServiceTest` | Unitário / Caixa Branca |
+| RF-15 | Consulta de CEP (ViaCEP) | `CepService.lookup` | `CepServiceVcrTest#buscaCepValidoRetornaEndereco` | Integração API externa / WireMock / VCR |
+| RF-16 | CEP inexistente retorna 404 | `CepService.lookup` | `CepServiceVcrTest#cepInexistenteLanca404` | VCR / Caixa Preta |
+| RF-17 | CEP em formato inválido rejeitado | `CepService.lookup` | `CepServiceVcrTest#cepFormatoInvalidoLancaBadRequest` | Unitário / Validação |
+| RF-18 | Editar perfil e endereço | `UserController.updateMe` | `AuthControllerIT` | Integração |
+
+> Regra crítica do edital: **proibido o uso de Mockito/`@MockBean`**. Toda integração roda contra MongoDB real via **Testcontainers**, e a integração com ViaCEP usa **WireMock + JSON gravado (VCR)**.
+
+---
+
+# Diagramas de Sequência UML
+
+## RF-01 — Cadastrar livro
+
+```mermaid
+sequenceDiagram
+  participant U as Usuário
+  participant F as Frontend
+  participant BC as BookController
+  participant BS as BookService
+  participant BR as BookRepository
+  participant M as MongoDB
+
+  U->>F: preenche formulário
+  F->>BC: POST /api/books
+  BC->>BS: create(ownerId, dto)
+  BS->>BR: save(book)
+  BR->>M: persistência
+  M-->>BR: livro salvo
+  BR-->>BS: Book
+  BS-->>BC: Book
+  BC-->>F: 201 Created
+```
+
+## RF-02 — Listar livros
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant BC as BookController
+  participant BS as BookService
+  participant BR as BookRepository
+  participant M as MongoDB
+
+  F->>BC: GET /api/books
+  BC->>BS: listMine(userId)
+  BS->>BR: findByOwnerId(userId)
+  BR->>M: consulta livros
+  M-->>BR: lista
+  BR-->>BS: livros
+  BS-->>BC: livros
+  BC-->>F: 200 OK
+```
+
+## RF-03 — Editar livro
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant BC as BookController
+  participant BS as BookService
+  participant BR as BookRepository
+  participant M as MongoDB
+
+  F->>BC: PUT /api/books/{id}
+  BC->>BS: update(ownerId,id,dto)
+  BS->>BR: findById(id)
+  BR->>M: busca livro
+  M-->>BR: livro
+  BS->>BR: save(book atualizado)
+  BR->>M: persistência
+  M-->>BR: atualizado
+  BR-->>BS: Book
+  BS-->>BC: Book
+  BC-->>F: 200 OK
+```
+
+## RF-04 — Excluir livro
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant BC as BookController
+  participant BS as BookService
+  participant BR as BookRepository
+  participant M as MongoDB
+
+  F->>BC: DELETE /api/books/{id}
+  BC->>BS: delete(ownerId,id)
+  BS->>BR: findById(id)
+  BR->>M: busca livro
+  M-->>BR: livro
+  BS->>BR: deleteById(id)
+  BR->>M: remove livro
+  M-->>BR: OK
+  BS-->>BC: sucesso
+  BC-->>F: 204 No Content
+```
+
+## RF-05 — Busca de livros por título/autor
 
 ```mermaid
 sequenceDiagram
@@ -20,7 +136,7 @@ sequenceDiagram
   BC-->>F: 200 OK + livros
 ```
 
-### RF-06 — Cadastro de usuário
+## RF-06 — Cadastro de usuário
 
 ```mermaid
 sequenceDiagram
@@ -45,7 +161,32 @@ sequenceDiagram
   AC-->>F: 201 Created
 ```
 
-### RF-08 — Validação de e-mail único
+## RF-07 — Login com JWT
+
+```mermaid
+sequenceDiagram
+  participant U as Usuário
+  participant F as Frontend
+  participant AC as AuthController
+  participant AS as AuthService
+  participant UR as UserRepository
+  participant JS as JwtService
+  participant M as MongoDB
+
+  U->>F: informa email e senha
+  F->>AC: POST /api/auth/login
+  AC->>AS: login(req)
+  AS->>UR: findByEmail(email)
+  UR->>M: consulta usuário
+  M-->>UR: User
+  UR-->>AS: User
+  AS->>JS: generateToken(user)
+  JS-->>AS: JWT
+  AS-->>AC: AuthResponse
+  AC-->>F: 200 OK + token
+```
+
+## RF-08 — Validação de e-mail único
 
 ```mermaid
 sequenceDiagram
@@ -59,11 +200,11 @@ sequenceDiagram
   UR->>M: consulta email
   M-->>UR: email já existe
   UR-->>AS: true
-  AS-->>AC: DuplicateEmailException
+  AS-->>AC: ConflictException
   AC-->>AC: retorna 409
 ```
 
-### RF-09 — Validação de e-mail
+## RF-09 — Validação de e-mail
 
 ```mermaid
 sequenceDiagram
@@ -77,7 +218,7 @@ sequenceDiagram
   EV-->>T: false
 ```
 
-### RF-10 — Política de senha forte
+## RF-10 — Política de senha forte
 
 ```mermaid
 sequenceDiagram
@@ -91,7 +232,7 @@ sequenceDiagram
   PP-->>T: inválido
 ```
 
-### RF-11 — Rejeição de senha fraca
+## RF-11 — Rejeição de senha fraca
 
 ```mermaid
 sequenceDiagram
@@ -106,7 +247,7 @@ sequenceDiagram
   AC-->>F: 400 Bad Request
 ```
 
-### RF-12 — Bloqueio sem autenticação JWT
+## RF-12 — Bloqueio sem autenticação JWT
 
 ```mermaid
 sequenceDiagram
@@ -120,7 +261,24 @@ sequenceDiagram
   API-->>U: 401 Unauthorized
 ```
 
-### RF-14 — Geração e validação JWT
+## RF-13 — Usuário só acessa os próprios livros
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant BC as BookController
+  participant BS as BookService
+  participant BR as BookRepository
+
+  F->>BC: GET /api/books/{id}
+  BC->>BS: getOwned(userId,id)
+  BS->>BR: findById(id)
+  BR-->>BS: livro de outro usuário
+  BS-->>BC: AccessDeniedException
+  BC-->>F: 403 Forbidden
+```
+
+## RF-14 — Geração e validação JWT
 
 ```mermaid
 sequenceDiagram
@@ -133,7 +291,24 @@ sequenceDiagram
   JS-->>JS: token válido
 ```
 
-### RF-16 — CEP inexistente
+## RF-15 — Consulta de CEP
+
+```mermaid
+sequenceDiagram
+  participant F as Frontend
+  participant CC as CepController
+  participant CS as CepService
+  participant API as ViaCEP
+
+  F->>CC: GET /api/cep/{cep}
+  CC->>CS: lookup(cep)
+  CS->>API: consulta ViaCEP
+  API-->>CS: endereço
+  CS-->>CC: CepResponse
+  CC-->>F: 200 OK
+```
+
+## RF-16 — CEP inexistente
 
 ```mermaid
 sequenceDiagram
@@ -147,7 +322,7 @@ sequenceDiagram
   CS-->>F: 404 Not Found
 ```
 
-### RF-17 — CEP inválido
+## RF-17 — CEP inválido
 
 ```mermaid
 sequenceDiagram
@@ -159,22 +334,19 @@ sequenceDiagram
   CS-->>F: 400 Bad Request
 ```
 
-### RF-18 — Atualização de perfil
+## RF-18 — Atualização de perfil
 
 ```mermaid
 sequenceDiagram
   participant F as Frontend
   participant UC as UserController
-  participant US as UserService
   participant UR as UserRepository
   participant M as MongoDB
 
   F->>UC: PUT /api/users/me
-  UC->>US: updateProfile()
-  US->>UR: save(user)
+  UC->>UR: save(user)
   UR->>M: persistência
   M-->>UR: usuário atualizado
-  UR-->>US: sucesso
-  US-->>UC: dados atualizados
+  UR-->>UC: sucesso
   UC-->>F: 200 OK
 ```
