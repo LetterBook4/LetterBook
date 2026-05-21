@@ -1,6 +1,6 @@
 # Letterbook — Gerenciador de Biblioteca Pessoal
 
-Projeto semestral — Qualidade de Software (2026.1).
+Projeto semestral — Qualidade de Software (2026.1).  
 Stack: **Spring Boot 3.3 + Java 21 + MongoDB 7/8 + JWT + HTML/CSS/JS puro**.
 
 > Regra do edital: **proibido o uso de Mockito** — todos os testes de integração rodam com MongoDB real via **Testcontainers** e o ViaCEP é simulado com **WireMock + VCR (JSON gravado)**.
@@ -19,17 +19,19 @@ Stack: **Spring Boot 3.3 + Java 21 + MongoDB 7/8 + JWT + HTML/CSS/JS puro**.
 | Git | 2.51+ |
 
 Confirme o Java 21:
+
 ```powershell
 java -version
 # deve mostrar "21.0.8"
 ```
+
 Se aparecer Java 25, ajuste `JAVA_HOME` e `Path` no Windows.
 
 ---
 
 ## 2. Estrutura
 
-```
+```txt
 letterbook/
 ├── backend/                # Spring Boot
 │   ├── pom.xml
@@ -49,36 +51,63 @@ letterbook/
 ## 3. Rodar localmente (passo a passo)
 
 ### 3.1 Subir o MongoDB
+
 Confirme que o serviço **MongoDB** está rodando em `localhost:27017` (Serviços do Windows → MongoDB Server).
 
 ### 3.2 Configurar variáveis de ambiente (PowerShell)
+
 ```powershell
 $env:MONGODB_URI = "mongodb://localhost:27017/letterbook"
 $env:JWT_SECRET  = "troque-este-segredo-base64-com-pelo-menos-256-bits-em-producao-XX"
 ```
 
 ### 3.3 Rodar o backend
+
 ```powershell
 cd backend
-.\mvnw.cmd spring-boot:run
-# ou: mvn spring-boot:run
+mvn spring-boot:run
 ```
-A API sobe em `http://localhost:8080`. Endpoints públicos: `/api/auth/**` e `/api/cep/**`. Os demais exigem `Authorization: Bearer <jwt>`.
+
+A API sobe em:
+
+```txt
+http://localhost:8080
+```
+
+Endpoints públicos:
+- `/api/auth/**`
+- `/api/cep/**`
+
+Os demais exigem:
+
+```txt
+Authorization: Bearer <jwt>
+```
 
 ### 3.4 Rodar o frontend
+
 Como o frontend é HTML estático, abra um servidor simples:
+
 ```powershell
 cd frontend
 python -m http.server 5500
-# ou:  npx serve -l 5500
+# ou:
+npx serve -l 5500
 ```
-Acesse `http://localhost:5500`. Crie uma conta na tela **Cadastre-se** (senha mínima 8 caracteres, com letra e número).
+
+Acesse:
+
+```txt
+http://localhost:5500
+```
+
+Crie uma conta na tela **Cadastre-se**.
 
 > **Não abra o `index.html` direto pelo `file://`** — o navegador bloqueia o `fetch` para `localhost:8080` por CORS quando o origin é `null`.
 
 ---
 
-## 4. Testes e cobertura (o que o professor abre)
+## 4. Testes e cobertura
 
 ```powershell
 cd backend
@@ -86,42 +115,54 @@ mvn clean verify
 ```
 
 Isto:
+
 1. Compila com Java 21.
-2. Sobe um MongoDB efêmero via **Testcontainers** para os ITs (precisa do Docker Desktop ligado).
-3. Roda **WireMock** local servindo as gravações em `src/test/resources/vcr/` para os testes do ViaCEP.
+2. Sobe um MongoDB efêmero via **Testcontainers** para os testes de integração.
+3. Roda **WireMock** local servindo as gravações em `src/test/resources/vcr/`.
 4. Gera `target/site/jacoco/index.html`.
-5. **Falha o build** se cobertura de linhas < 80% ou branches < 70% (regra do JaCoCo `check`).
+5. Executa as validações do JaCoCo configuradas no projeto.
 
-### Tipos de teste presentes (mapeados no `RTM.md`)
+### Tipos de teste presentes
+
 - **Unitário Caixa Branca** — `EmailValidatorTest`, `PasswordPolicyTest`, `JwtServiceTest`.
-- **Parametrizado** — `@ParameterizedTest` + `@ValueSource` em `EmailValidatorTest` e `PasswordPolicyTest`.
-- **Integração com Testcontainers** — `AuthControllerIT`, `BookControllerIT` (estendem `AbstractMongoIT`, sobem Mongo real e batem nos endpoints com `TestRestTemplate`).
-- **VCR / API externa** — `CepServiceVcrTest` (WireMock + JSON gravado, sem Mockito).
-- **Caixa Preta / E2E / Controller** — todos os `*IT` validam status HTTP, corpo JSON e estado real do banco.
+- **Parametrizado** — `@ParameterizedTest` + `@ValueSource`.
+- **Integração com Testcontainers** — `AuthControllerIT`, `BookControllerIT`.
+- **VCR / API externa** — `CepServiceVcrTest`.
+- **Caixa Preta / E2E / Controller** — validação de status HTTP, JSON e persistência real.
 
-### Verificações típicas da banca
+### Verificações típicas
+
 ```powershell
-# 1. Build verde
+# Build completo
 mvn clean verify
 
-# 2. Cobertura >= 80% linhas
+# Abrir cobertura
 start target/site/jacoco/index.html
 
-# 3. Nenhum mock no projeto (regra do edital)
+# Confirmar ausência de Mockito
 findstr /S /I "mockito @MockBean Mockito.mock" src
-# saída esperada: vazia
 ```
 
 ---
 
 ## 5. Pipeline (GitHub Actions + SonarCloud)
 
-- `.github/workflows/ci.yml` roda em **Ubuntu + Java 21**, executa `mvn clean verify`, publica o relatório do JaCoCo como artifact e dispara `mvn sonar:sonar` se o segredo `SONAR_TOKEN` estiver configurado.
-- `sonar-project.properties` aponta `sonar.coverage.jacoco.xmlReportPaths=backend/target/site/jacoco/jacoco.xml`.
+- `.github/workflows/ci.yml` roda em **Ubuntu + Java 21**
+- executa `mvn clean verify`
+- publica relatório JaCoCo
+- executa integração SonarCloud
 
-Para ativar Sonar:
-1. Crie a organização/projeto em https://sonarcloud.io com a key `letterbook`.
-2. Em **Settings → Secrets and variables → Actions** adicione `SONAR_TOKEN`.
+Arquivo:
+
+```txt
+.github/workflows/ci.yml
+```
+
+Relatório JaCoCo:
+
+```txt
+backend/target/site/jacoco/jacoco.xml
+```
 
 ---
 
@@ -145,16 +186,16 @@ Para ativar Sonar:
 
 | Sintoma | Causa | Solução |
 |---|---|---|
-| `Credenciais inválidas` no login | Sem usuário cadastrado **ou** MongoDB não está ligado | Cadastre-se primeiro; confirme `mongosh` conecta em 27017 |
-| `Failed to start container` nos testes | Docker Desktop desligado | Abra o Docker antes de `mvn verify` |
-| Java version error | `JAVA_HOME` apontando para JDK 25 | Repoint para JDK 21.0.8 |
+| `Credenciais inválidas` | Usuário inexistente ou Mongo desligado | Cadastre-se primeiro e confirme MongoDB |
+| `Failed to start container` | Docker desligado | Abra Docker Desktop |
+| Java version error | `JAVA_HOME` incorreto | Configurar Java 21 |
 | Frontend não chama API | Aberto via `file://` | Use `python -m http.server` |
-| CORS no `/api/cep` | OK, o frontend já chama o **backend**, não o ViaCEP direto | — |
-<<<<<<< HEAD
+| CORS no `/api/cep` | Frontend chama backend corretamente | Comportamento esperado |
+
+---
+
 # LetterBook
-=======
 
 ## Atualização
 
 Contribuição realizada por Thiago Henrique.
->>>>>>> 09c983928cdc1e377dd7a54df8f714c6e1152fa8
